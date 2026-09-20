@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FDM Co-Pilot & Business AI Bingo</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        fdm: {
+                            navy: '#001a36',
+                            blue: '#003366',
+                            accent: '#00a8cc',
+                            teal: '#00c2cb',
+                            lightBg: '#f4f7fa',
+                            cardBg: '#ffffff',
+                            darkText: '#0f172a'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f7fa;
+            color: #0f172a;
+        }
+
+        .bingo-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .bingo-tile {
+            aspect-ratio: 1 / 1;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            user-select: none;
+        }
+
+        .bingo-tile:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .bingo-tile.marked {
+            background-color: #003366 !important;
+            color: #ffffff !important;
+            border-color: #00c2cb !important;
+        }
+
+        .stamp-icon {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #00c2cb;
+            color: #001a36;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            opacity: 0;
+            transform: scale(0.5);
+            transition: all 0.2s ease;
+        }
+
+        .bingo-tile.marked .stamp-icon {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* Free Space styling */
+        .free-space {
+            background: linear-gradient(135deg, #001a36 0%, #003366 100%) !important;
+            color: white !important;
+            border: 2px solid #00c2cb !important;
+        }
+
+        .free-space .stamp-icon {
+            opacity: 1;
+            transform: scale(1);
+            background: #00c2cb;
+            color: #001a36;
+        }
+
+        /* Print styles */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .print-only {
+                display: block !important;
+            }
+            body {
+                background: white;
+                color: black;
+            }
+            .bingo-grid {
+                gap: 6px;
+            }
+            .bingo-tile {
+                border: 1px solid #ccc !important;
+                background: white !important;
+                color: black !important;
+                box-shadow: none !important;
+                font-size: 11px !important;
+            }
+            .bingo-tile.marked::after {
+                content: '✓';
+                position: absolute;
+                top: 4px;
+                right: 4px;
+                font-size: 18px;
+                font-weight: bold;
+                color: #003366;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+
+    <!-- Header -->
+    <header class="bg-fdm-navy text-white shadow-lg no-print">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <div class="bg-white p-2 rounded-xl shadow-md">
+                    <img src="https://media.licdn.com/dms/image/v2/D560BAQER7JVqKYZuEg/company-logo_200_200/B56Zy_DQrDJgAI-/0/1772731829520?e=2147483647&v=beta&t=yIBV8fAqzldZCqN3tMYwra7wpzKa2MzOpw1ZQNTT7Wo" 
+                         alt="FDM Group Logo" 
+                         class="h-12 w-12 object-contain"
+                         onerror="this.src='https://placehold.co/100x100/001a36/ffffff?text=FDM'">
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="bg-fdm-teal text-fdm-navy text-xs font-extrabold px-2 py-0.5 rounded tracking-wide uppercase">M365 Co-Pilot Edition</span>
+                        <span class="text-xs text-slate-300">Enterprise AI Enablement</span>
+                    </div>
+                    <h1 class="text-2xl font-bold tracking-tight">FDM Business AI Bingo</h1>
+                </div>
+            </div>
+
+            <!-- Header Action Controls -->
+            <div class="flex items-center gap-2 flex-wrap justify-center">
+                <button onclick="shuffleCard()" class="bg-fdm-blue hover:bg-opacity-80 text-white text-sm font-semibold px-3 py-2 rounded-lg border border-slate-600 transition flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-shuffle text-fdm-teal"></i> Shuffle Card
+                </button>
+                <button onclick="resetBoard()" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold px-3 py-2 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-rotate-right text-slate-400"></i> Clear Marks
+                </button>
+                <button onclick="saveProgress()" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold px-3 py-2 rounded-lg border border-slate-700 transition flex items-center gap-1.5 shadow-sm" title="Download Progress JSON">
+                    <i class="fa-solid fa-download text-fdm-teal"></i> Save Progress
+                </button>
+                <button onclick="document.getElementById('import-file-input').click()" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold px-3 py-2 rounded-lg border border-slate-700 transition flex items-center gap-1.5 shadow-sm" title="Upload Saved JSON">
+                    <i class="fa-solid fa-upload text-fdm-teal"></i> Upload Progress
+                </button>
+                <input type="file" id="import-file-input" accept=".json" class="hidden" onchange="uploadProgress(event)">
+                <button onclick="window.print()" class="bg-fdm-teal hover:bg-opacity-90 text-fdm-navy text-sm font-bold px-3 py-2 rounded-lg transition flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-print"></i> Print Card
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-6xl mx-auto px-4 py-6 w-full flex-grow">
+        
+        <!-- Status & Progress Dashboard -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 no-print">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-3">
+                <div class="w-12 h-12 rounded-lg bg-blue-50 text-fdm-blue flex items-center justify-center text-xl font-bold">
+                    <i class="fa-solid fa-bullseye"></i>
+                </div>
+                <div>
+                    <div class="text-xs font-medium text-slate-500 uppercase">Squares Completed</div>
+                    <div class="text-xl font-extrabold text-slate-800" id="stat-completed">1 / 25</div>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-3">
+                <div class="w-12 h-12 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl font-bold">
+                    <i class="fa-solid fa-trophy"></i>
+                </div>
+                <div>
+                    <div class="text-xs font-medium text-slate-500 uppercase">Bingo Lines</div>
+                    <div class="text-xl font-extrabold text-slate-800" id="stat-lines">0 Lines</div>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-3">
+                <div class="w-12 h-12 rounded-lg bg-cyan-50 text-fdm-teal flex items-center justify-center text-xl font-bold">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <div>
+                    <div class="text-xs font-medium text-slate-500 uppercase">Est. Time Saved</div>
+                    <div class="text-xl font-extrabold text-slate-800" id="stat-time">30 mins</div>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <div class="text-xs font-medium text-slate-500 uppercase mb-1">Actions</div>
+                    <div class="flex gap-2">
+                        <button onclick="openCustomTaskModal()" class="text-xs font-semibold text-fdm-blue hover:text-fdm-teal flex items-center gap-1">
+                            <i class="fa-solid fa-plus-circle"></i> Add Task
+                        </button>
+                        <span class="text-slate-300">|</span>
+                        <button onclick="shareProgress()" class="text-xs font-semibold text-fdm-blue hover:text-fdm-teal flex items-center gap-1">
+                            <i class="fa-solid fa-share-nodes"></i> Share Status
+                        </button>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <span class="inline-block px-2 py-1 text-xs font-bold bg-amber-100 text-amber-800 rounded-md" id="badge-status">In Progress</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Printable Header (Only Visible When Printed) -->
+        <div class="hidden print-only mb-6 text-center border-b pb-4">
+            <div class="flex justify-center items-center gap-4 mb-2">
+                <img src="https://media.licdn.com/dms/image/v2/D560BAQER7JVqKYZuEg/company-logo_200_200/B56Zy_DQrDJgAI-/0/1772731829520?e=2147483647&v=beta&t=yIBV8fAqzldZCqN3tMYwra7wpzKa2MzOpw1ZQNTT7Wo" class="h-10">
+                <h1 class="text-2xl font-bold">FDM Co-Pilot & Business AI Bingo</h1>
+            </div>
+            <p class="text-sm text-gray-600">Mark off squares as you use Microsoft 365 Copilot and Generative AI for daily workplace tasks!</p>
+        </div>
+
+        <!-- BINGO Grid Container -->
+        <div class="bg-white p-4 sm:p-6 rounded-2xl shadow-xl border border-slate-200">
+            <!-- B - I - N - G - O Header Bar -->
+            <div class="grid grid-cols-5 gap-2.5 mb-3 text-center">
+                <div class="bg-fdm-navy text-white font-black text-xl sm:text-2xl py-2 rounded-xl shadow-sm tracking-widest border-b-4 border-fdm-teal">B</div>
+                <div class="bg-fdm-navy text-white font-black text-xl sm:text-2xl py-2 rounded-xl shadow-sm tracking-widest border-b-4 border-fdm-teal">I</div>
+                <div class="bg-fdm-navy text-white font-black text-xl sm:text-2xl py-2 rounded-xl shadow-sm tracking-widest border-b-4 border-fdm-teal">N</div>
+                <div class="bg-fdm-navy text-white font-black text-xl sm:text-2xl py-2 rounded-xl shadow-sm tracking-widest border-b-4 border-fdm-teal">G</div>
+                <div class="bg-fdm-navy text-white font-black text-xl sm:text-2xl py-2 rounded-xl shadow-sm tracking-widest border-b-4 border-fdm-teal">O</div>
+            </div>
+
+            <!-- Interactive 5x5 Bingo Grid -->
+            <div id="bingo-board" class="bingo-grid">
+                <!-- Javascript will dynamically render 25 bingo tiles here -->
+            </div>
+        </div>
+
+        <!-- How to Play / Instructions Footer -->
+        <div class="mt-6 bg-slate-100 p-4 rounded-xl text-sm text-slate-600 no-print flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-slate-200">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-circle-info text-fdm-blue text-lg"></i>
+                <span><strong>Pro-Tip:</strong> Click any bingo tile to mark it complete or click <i class="fa-solid fa-wand-magic-sparkles text-amber-500"></i> to view recommended Microsoft 365 Copilot prompts!</span>
+            </div>
+            <div class="text-xs text-slate-500 font-medium">
+                FDM Group • AI Enablement Program
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal: Copilot Prompt Helper / Detail View -->
+    <div id="prompt-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden no-print">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 transform transition-all">
+            <div class="bg-fdm-navy p-5 text-white flex justify-between items-start">
+                <div>
+                    <span class="inline-block px-2 py-0.5 text-xs font-semibold bg-fdm-teal text-fdm-navy rounded mb-1" id="modal-app-tag">Teams / Outlook</span>
+                    <h3 class="text-lg font-bold" id="modal-tile-title">Task Title</h3>
+                </div>
+                <button onclick="closeModal('prompt-modal')" class="text-slate-400 hover:text-white text-xl">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Recommended Copilot Prompt</label>
+                    <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-sm font-mono text-slate-800 relative group">
+                        <p id="modal-prompt-text" class="pr-8">"Summarize the key decisions and action items from this meeting..."</p>
+                        <button onclick="copyModalPrompt()" class="absolute top-2.5 right-2.5 text-slate-400 hover:text-fdm-blue p-1.5 rounded-md hover:bg-slate-200 transition" title="Copy Prompt">
+                            <i class="fa-solid fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 p-3.5 rounded-xl text-xs text-slate-700 flex items-start gap-2.5">
+                    <i class="fa-solid fa-lightbulb text-amber-500 text-base mt-0.5"></i>
+                    <div>
+                        <strong>Best Practice:</strong> <span id="modal-tip-text">Use Copilot in Teams during or after live meetings to extract structured transcripts quickly.</span>
+                    </div>
+                </div>
+
+                <div class="pt-2 flex justify-between items-center border-t border-slate-100">
+                    <button id="modal-toggle-btn" onclick="toggleCurrentModalTileMark()" class="px-4 py-2 rounded-xl text-sm font-bold bg-fdm-blue text-white hover:bg-opacity-90 transition flex items-center gap-2">
+                        <i class="fa-solid fa-check-circle"></i> Mark as Done
+                    </button>
+                    <button onclick="closeModal('prompt-modal')" class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Add Custom Task -->
+    <div id="custom-task-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden no-print">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100">
+            <div class="bg-fdm-navy p-5 text-white flex justify-between items-center">
+                <h3 class="text-lg font-bold"><i class="fa-solid fa-plus-circle text-fdm-teal mr-2"></i>Add Custom Copilot Task</h3>
+                <button onclick="closeModal('custom-task-modal')" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <form onsubmit="handleAddCustomTask(event)" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Task Description (Short)</label>
+                    <input type="text" id="custom-task-title" required placeholder="e.g. Generated client deck outline in Copilot" 
+                           class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-fdm-teal focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Target Application</label>
+                    <select id="custom-task-app" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-fdm-teal focus:outline-none">
+                        <option value="Microsoft Teams">Microsoft Teams</option>
+                        <option value="Microsoft Word">Microsoft Word</option>
+                        <option value="Microsoft Excel">Microsoft Excel</option>
+                        <option value="PowerPoint">PowerPoint</option>
+                        <option value="Outlook">Outlook</option>
+                        <option value="General AI">General Copilot / Web</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Copilot Prompt Example</label>
+                    <textarea id="custom-task-prompt" rows="3" placeholder="e.g. Copilot, outline a 5-slide sales proposal for..." 
+                              class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-fdm-teal focus:outline-none"></textarea>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeModal('custom-task-modal')" class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel</button>
+                    <button type="submit" class="px-4 py-2 rounded-xl text-sm font-bold bg-fdm-teal text-fdm-navy hover:bg-opacity-90">Add To Pool</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-fdm-navy text-white px-4 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-3 transition-all duration-300 transform translate-y-20 opacity-0 no-print">
+        <i class="fa-solid fa-circle-check text-fdm-teal text-lg" id="toast-icon"></i>
+        <span id="toast-message" class="text-sm font-medium">Notification message</span>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-8 no-print">
+        <div class="max-w-6xl mx-auto px-4 text-center text-xs text-slate-500 space-y-1">
+            <p>FDM Group Copilot Enablement • Built for Workplace Productivity & Business AI Adoption</p>
+            <p class="font-medium text-slate-600">Please reach out with questions or comments to <span class="font-semibold text-fdm-navy">Anne Maksimchuk</span>.</p>
+        </div>
+    </footer>
+
+    <script>
+        const DEFAULT_TASK_POOL = [
+            {
+                id: 't1',
+                title: 'Drafted client email in Copilot',
+                icon: 'fa-envelope',
+                app: 'Outlook',
+                prompt: 'Draft a polite follow-up email to [Client Name] summarizing our project timeline and next steps.',
+                tip: 'Use Copilot in Outlook to quickly adjust tone (e.g., make it more casual or formal).'
+            },
+            {
+                id: 't2',
+                title: 'Summarized long Teams meeting thread',
+                icon: 'fa-comments',
+                app: 'Microsoft Teams',
+                prompt: 'Summarize the main discussion points and key decisions made in this channel thread.',
+                tip: 'Catch up on missed chat conversations without reading hundreds of messages.'
+            },
+            {
+                id: 't3',
+                title: 'Generated PowerPoint deck outline',
+                icon: 'fa-file-powerpoint',
+                app: 'PowerPoint',
+                prompt: 'Create a 6-slide presentation on [Project Title] covering goals, timelines, risks, and ROI.',
+                tip: 'Copilot can build slides directly from existing Word documents or notes.'
+            },
+            {
+                id: 't4',
+                title: 'Wrote or explained Excel formula',
+                icon: 'fa-file-excel',
+                app: 'Microsoft Excel',
+                prompt: 'Write a formula to calculate the quarter-over-quarter percentage growth in Column C.',
+                tip: 'Highlight data in Excel and ask Copilot to highlight key trends or calculate metrics.'
+            },
+            {
+                id: 't5',
+                title: 'Refined prompt 3+ times for precision',
+                icon: 'fa-wand-magic-sparkles',
+                app: 'General AI',
+                prompt: 'Act as an IT Strategy Lead. Rewrite the previous output to focus on enterprise security compliance.',
+                tip: 'Iterative prompting (Role + Context + Clear Task) yields significantly better results.'
+            },
+            {
+                id: 't6',
+                title: 'Extracted action items from transcript',
+                icon: 'fa-list-check',
+                app: 'Microsoft Teams',
+                prompt: 'List all open action items, assigned owners, and target dates mentioned in this meeting transcript.',
+                tip: 'Run this command immediately after team calls to create post-meeting task lists.'
+            },
+            {
+                id: 't7',
+                title: 'Rewrote doc to sound "Executive & Concise"',
+                icon: 'fa-file-word',
+                app: 'Microsoft Word',
+                prompt: 'Rewrite this executive summary to be concise, compelling, and bulleted for leadership review.',
+                tip: 'Select text in Word and click the Copilot icon to rewrite or expand.'
+            },
+            {
+                id: 't8',
+                title: 'Caught an AI hallucination before sending',
+                icon: 'fa-shield-halved',
+                app: 'Quality Assurance',
+                prompt: 'Always verify client names, numerical figures, and dates generated by generative AI.',
+                tip: 'Human oversight ("Human in the Loop") ensures accuracy and business compliance.'
+            },
+            {
+                id: 't9',
+                title: 'Brainstormed project ideas & milestones',
+                icon: 'fa-lightbulb',
+                app: 'General AI',
+                prompt: 'Brainstorm 5 innovative ways to improve client onboarding efficiency for FDM consultants.',
+                tip: 'Ask Copilot for multiple options then filter for practical feasibility.'
+            },
+            {
+                id: 't10',
+                title: 'Summarized a 10+ page PDF or report',
+                icon: 'fa-file-pdf',
+                app: 'Edge / Copilot Web',
+                prompt: 'Provide a 3-paragraph executive summary and top 5 key takeaways from this PDF.',
+                tip: 'Open PDFs in Edge and ask Copilot in the sidebar to analyze the document.'
+            },
+            {
+                id: 't11',
+                title: 'Drafted tricky or sensitive message',
+                icon: 'fa-user-gear',
+                app: 'Microsoft Teams / Outlook',
+                prompt: 'Draft a diplomatic response to a client explaining a minor project delay while offering solutions.',
+                tip: 'Review and refine tone to ensure professional alignment.'
+            },
+            {
+                id: 't12',
+                title: 'Generated image for slide presentation',
+                icon: 'fa-image',
+                app: 'PowerPoint / Designer',
+                prompt: 'Generate a modern minimalist graphic representing cloud transformation in financial services.',
+                tip: 'Use Copilot / Designer to create unique, royalty-free slide visuals.'
+            },
+            {
+                id: 't13',
+                title: 'Analyzed financial or sales data',
+                icon: 'fa-chart-line',
+                app: 'Microsoft Excel',
+                prompt: 'Identify the top 3 performing service categories and create a chart showing revenue trends.',
+                tip: 'Copilot in Excel can generate Pivot Tables and charts with plain natural language commands.'
+            },
+            {
+                id: 't14',
+                title: 'Created meeting agenda from scratch',
+                icon: 'fa-calendar-days',
+                app: 'Outlook / Word',
+                prompt: 'Create a 45-minute project kickoff agenda including introductions, scope review, and Q&A.',
+                tip: 'Save agendas to Teams meeting invites to keep all attendees aligned.'
+            },
+            {
+                id: 't15',
+                title: 'Translated text or client emails',
+                icon: 'fa-language',
+                app: 'Outlook / Word',
+                prompt: 'Translate this technical overview into fluent German while maintaining professional business terms.',
+                tip: 'Great for global communication across international client teams.'
+            },
+            {
+                id: 't16',
+                title: 'Drafted role interview questions',
+                icon: 'fa-clipboard-question',
+                app: 'General AI',
+                prompt: 'Generate 5 behavioral interview questions for assessing a Senior Business Analyst candidate.',
+                tip: 'Include target answers or evaluation criteria in your prompt.'
+            },
+            {
+                id: 't17',
+                title: 'Asked technical "How-To" question',
+                icon: 'fa-circle-question',
+                app: 'Copilot Chat',
+                prompt: 'How do I set up a conditional formatting rule in Excel based on date deadlines?',
+                tip: 'Use Copilot as an instant software assistant instead of searching external sites.'
+            },
+            {
+                id: 't18',
+                title: 'Located lost file or email thread',
+                icon: 'fa-magnifying-glass',
+                app: 'M365 Copilot',
+                prompt: 'Find recent documents or emails from [Colleague Name] regarding the Q3 budget proposal.',
+                tip: 'M365 Copilot searches across your entire Microsoft Graph data securely.'
+            },
+            {
+                id: 't19',
+                title: 'Ran SWOT analysis on a topic/competitor',
+                icon: 'fa-diagram-project',
+                app: 'Word / Copilot Web',
+                prompt: 'Perform a SWOT analysis for deploying AI code assistants in enterprise development teams.',
+                tip: 'Use for quick strategic planning before client pitch meetings.'
+            },
+            {
+                id: 't20',
+                title: 'Summarized unread emails after PTO',
+                icon: 'fa-plane-departure',
+                app: 'Outlook',
+                prompt: 'Summarize all urgent or action-required emails received over the past 5 days.',
+                tip: 'Get back up to speed in minutes after taking time off.'
+            },
+            {
+                id: 't21',
+                title: 'Formatted Word doc into clean report',
+                icon: 'fa-heading',
+                app: 'Microsoft Word',
+                prompt: 'Format this raw notes document with clear headings, bullet points, and an executive summary.',
+                tip: 'Transforms unstructured meeting notes into client-ready documentation.'
+            },
+            {
+                id: 't22',
+                title: 'Simplified complex technical jargon',
+                icon: 'fa-feather-pointed',
+                app: 'Word / Teams',
+                prompt: 'Explain this technical architecture paragraph so a non-technical business stakeholder can understand.',
+                tip: 'Perfect for bridge-building between IT teams and business units.'
+            },
+            {
+                id: 't23',
+                title: 'Discovered a new Copilot feature',
+                icon: 'fa-compass',
+                app: 'Productivity',
+                prompt: 'Explored and tested an AI capability that simplified a daily workflow task.',
+                tip: 'Share your findings with your FDM team channel!'
+            },
+            {
+                id: 't24',
+                title: 'Drafted status report for stakeholders',
+                icon: 'fa-chart-pie',
+                app: 'Word / Teams',
+                prompt: 'Draft a weekly project status report summarizing highlights, risks, upcoming milestones, and dependencies.',
+                tip: 'Saves 30-40 minutes on repetitive administrative reporting.'
+            }
+        ];
+
+        // Free space definition
+        const FREE_SPACE_ITEM = {
+            id: 'free-space',
+            title: '🌟 FREE SPACE 🌟',
+            subtitle: 'Co-Pilot saved me 30+ mins today!',
+            icon: 'fa-star',
+            app: 'FDM AI Enablement',
+            prompt: 'Enjoy your productivity boost! Keep using Microsoft 365 Copilot to streamline daily work.',
+            tip: 'Always look for repetitive manual tasks that Copilot can draft or automate.'
+        };
+
+        /* State Variables */
+        let currentBoardState = []; // 25 elements for the 5x5 grid
+        let activeModalTileIndex = null;
+        let confettiTriggered = false;
+
+        // Load initial state or generate board
+        window.addEventListener('DOMContentLoaded', () => {
+            initBoard();
+        });
+
+        function initBoard() {
+            // Pick 24 items randomly from task pool
+            const shuffledPool = [...DEFAULT_TASK_POOL].sort(() => 0.5 - Math.random());
+            const selected24 = shuffledPool.slice(0, 24);
+
+            currentBoardState = [];
+            let poolIdx = 0;
+
+            for (let i = 0; i < 25; i++) {
+                if (i === 12) {
+                    // Center tile is always Free Space
+                    currentBoardState.push({
+                        ...FREE_SPACE_ITEM,
+                        marked: true
+                    });
+                } else {
+                    currentBoardState.push({
+                        ...selected24[poolIdx],
+                        marked: false
+                    });
+                    poolIdx++;
+                }
+            }
+
+            renderBoard();
+            updateStats();
+        }
+
+        function shuffleCard() {
+            initBoard();
+            confettiTriggered = false;
+            showToast("Bingo card re-shuffled with new tasks!");
+        }
+
+        function resetBoard() {
+            currentBoardState.forEach((tile, idx) => {
+                if (idx !== 12) {
+                    tile.marked = false;
+                }
+            });
+            confettiTriggered = false;
+            renderBoard();
+            updateStats();
+            showToast("Cleared marked squares.");
+        }
+
+        function renderBoard() {
+            const boardContainer = document.getElementById('bingo-board');
+            boardContainer.innerHTML = '';
+
+            currentBoardState.forEach((tile, index) => {
+                const isFree = index === 12;
+                const tileEl = document.createElement('div');
+                
+                let tileClasses = `bingo-tile p-2.5 sm:p-3 rounded-xl border flex flex-col justify-between cursor-pointer select-none text-left shadow-sm `;
+                
+                if (isFree) {
+                    tileClasses += 'free-space ';
+                } else if (tile.marked) {
+                    tileClasses += 'marked border-fdm-teal ';
+                } else {
+                    tileClasses += 'bg-white hover:bg-slate-50 border-slate-200 text-slate-800 ';
+                }
+
+                tileEl.className = tileClasses;
+
+                tileEl.innerHTML = `
+                    <div class="flex justify-between items-start gap-1">
+                        <span class="text-xs font-semibold px-1.5 py-0.5 rounded ${isFree ? 'bg-fdm-teal text-fdm-navy font-bold' : (tile.marked ? 'bg-blue-900 text-fdm-teal' : 'bg-slate-100 text-slate-500')} uppercase text-[10px] tracking-tight">
+                            ${tile.app || 'Copilot'}
+                        </span>
+                        <div class="stamp-icon">
+                            <i class="fa-solid fa-check"></i>
+                        </div>
+                    </div>
+
+                    <div class="my-1.5">
+                        <p class="text-xs sm:text-sm font-bold leading-snug line-clamp-3">
+                            ${tile.title}
+                        </p>
+                        ${tile.subtitle ? `<p class="text-[11px] opacity-90 font-medium mt-0.5">${tile.subtitle}</p>` : ''}
+                    </div>
+
+                    <div class="flex justify-between items-center text-[10px] opacity-75 font-medium no-print">
+                        <span>${tile.marked ? 'Completed' : 'Click to stamp'}</span>
+                        <button onclick="event.stopPropagation(); openPromptModal(${index})" class="hover:text-fdm-teal transition p-1" title="View Copilot Prompt">
+                            <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i>
+                        </button>
+                    </div>
+                `;
+
+                // Single click toggles tile mark
+                tileEl.addEventListener('click', () => toggleTile(index));
+
+                boardContainer.appendChild(tileEl);
+            });
+        }
+
+        function toggleTile(index) {
+            if (index === 12) return; // Free space remains marked
+
+            currentBoardState[index].marked = !currentBoardState[index].marked;
+            renderBoard();
+            updateStats();
+            checkBingoWin();
+        }
+
+        function checkBingoWin() {
+            const grid = currentBoardState.map(t => t.marked);
+            const lines = countBingoLines(grid);
+
+            if (lines > 0 && !confettiTriggered) {
+                confettiTriggered = true;
+                triggerWinCelebration(lines);
+            }
+        }
+
+        function countBingoLines(grid) {
+            let lineCount = 0;
+
+            // Rows
+            for (let r = 0; r < 5; r++) {
+                if (grid[r*5] && grid[r*5+1] && grid[r*5+2] && grid[r*5+3] && grid[r*5+4]) lineCount++;
+            }
+
+            // Columns
+            for (let c = 0; c < 5; c++) {
+                if (grid[c] && grid[c+5] && grid[c+10] && grid[c+15] && grid[c+20]) lineCount++;
+            }
+
+            // Diagonals
+            if (grid[0] && grid[6] && grid[12] && grid[18] && grid[24]) lineCount++;
+            if (grid[4] && grid[8] && grid[12] && grid[16] && grid[20]) lineCount++;
+
+            return lineCount;
+        }
+
+        function triggerWinCelebration(lineCount) {
+            // Trigger confetti
+            confetti({
+                particleCount: 120,
+                spread: 80,
+                origin: { y: 0.6 }
+            });
+
+            showToast(`🎉 BINGO! You completed ${lineCount} line${lineCount > 1 ? 's' : ''}! Great AI adoption!`);
+        }
+
+        function updateStats() {
+            const markedCount = currentBoardState.filter(t => t.marked).length;
+            const lineCount = countBingoLines(currentBoardState.map(t => t.marked));
+            const estTimeSavedMinutes = markedCount * 15; // Average 15 mins saved per completed task
+
+            document.getElementById('stat-completed').innerText = `${markedCount} / 25`;
+            document.getElementById('stat-lines').innerText = `${lineCount} Line${lineCount !== 1 ? 's' : ''}`;
+            document.getElementById('stat-time').innerText = `${estTimeSavedMinutes} mins`;
+
+            const statusBadge = document.getElementById('badge-status');
+            if (lineCount > 0) {
+                statusBadge.innerText = 'BINGO Winner!';
+                statusBadge.className = 'inline-block px-2 py-1 text-xs font-bold bg-emerald-100 text-emerald-800 rounded-md';
+            } else {
+                statusBadge.innerText = 'In Progress';
+                statusBadge.className = 'inline-block px-2 py-1 text-xs font-bold bg-amber-100 text-amber-800 rounded-md';
+            }
+        }
+
+        function openPromptModal(index) {
+            activeModalTileIndex = index;
+            const tile = currentBoardState[index];
+
+            document.getElementById('modal-app-tag').innerText = tile.app || 'Microsoft 365';
+            document.getElementById('modal-tile-title').innerText = tile.title;
+            document.getElementById('modal-prompt-text').innerText = tile.prompt ? `"${tile.prompt}"` : 'No prompt provided.';
+            document.getElementById('modal-tip-text').innerText = tile.tip || 'Use Copilot to streamline repetitive workplace communication and analysis.';
+
+            const toggleBtn = document.getElementById('modal-toggle-btn');
+            if (index === 12) {
+                toggleBtn.style.display = 'none';
+            } else {
+                toggleBtn.style.display = 'inline-flex';
+                toggleBtn.innerHTML = tile.marked 
+                    ? '<i class="fa-solid fa-xmark-circle"></i> Unmark Square' 
+                    : '<i class="fa-solid fa-check-circle"></i> Mark as Done';
+            }
+
+            document.getElementById('prompt-modal').classList.remove('hidden');
+        }
+
+        function toggleCurrentModalTileMark() {
+            if (activeModalTileIndex !== null && activeModalTileIndex !== 12) {
+                toggleTile(activeModalTileIndex);
+                closeModal('prompt-modal');
+            }
+        }
+
+        function copyModalPrompt() {
+            const promptText = document.getElementById('modal-prompt-text').innerText.replace(/^"|"$/g, '');
+            
+            // Clipboard copy fallbacks
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(promptText);
+            } else {
+                const textArea = document.createElement("textarea");
+                textArea.value = promptText;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+            }
+            
+            showToast("Copilot prompt copied to clipboard!");
+        }
+
+        function openCustomTaskModal() {
+            document.getElementById('custom-task-modal').classList.remove('hidden');
+        }
+
+        function handleAddCustomTask(e) {
+            e.preventDefault();
+            const title = document.getElementById('custom-task-title').value;
+            const app = document.getElementById('custom-task-app').value;
+            const prompt = document.getElementById('custom-task-prompt').value;
+
+            if (!title) return;
+
+            const newTask = {
+                id: 'custom-' + Date.now(),
+                title: title,
+                app: app,
+                prompt: prompt || 'Copilot task generated by FDM user.',
+                tip: 'Custom user-created task.',
+                icon: 'fa-plus'
+            };
+
+            DEFAULT_TASK_POOL.unshift(newTask);
+            closeModal('custom-task-modal');
+            
+            // Put into current board at non-free spot
+            currentBoardState[0] = { ...newTask, marked: false };
+            renderBoard();
+            updateStats();
+
+            showToast("Custom task added to your bingo board!");
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        function shareProgress() {
+            const markedCount = currentBoardState.filter(t => t.marked).length;
+            const lineCount = countBingoLines(currentBoardState.map(t => t.marked));
+            const shareText = `🎯 FDM Co-Pilot Bingo Update: I've completed ${markedCount}/25 business AI tasks and achieved ${lineCount} Bingo line(s)! #FDMAI #Microsoft365Copilot`;
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(shareText);
+            } else {
+                const textArea = document.createElement("textarea");
+                textArea.value = shareText;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+            }
+
+            showToast("Progress summary copied for Teams / Outlook!");
+        }
+
+        function saveProgress() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentBoardState, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `fdm_copilot_bingo_progress_${new Date().toISOString().slice(0, 10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast("Progress saved to file!");
+        }
+
+        function uploadProgress(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedState = JSON.parse(e.target.result);
+                    if (Array.isArray(importedState) && importedState.length === 25) {
+                        currentBoardState = importedState;
+                        renderBoard();
+                        updateStats();
+                        checkBingoWin();
+                        showToast("Progress successfully loaded!");
+                    } else {
+                        showToast("Invalid save file format.");
+                    }
+                } catch (err) {
+                    showToast("Failed to parse progress file.");
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').innerText = message;
+            
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
